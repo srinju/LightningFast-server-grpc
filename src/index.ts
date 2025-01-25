@@ -23,18 +23,19 @@ const proto = grpc.loadPackageDefinition(packageDefinition) as any;
 const HighPerformanceService = proto.highPerformance.HighPerformanceService;
 
 // Batch settings
-const BATCH_SIZE = 5000; // Process requests in batches of 5000
+const BATCH_SIZE = 500_000; // Process requests in batches of 200,000
 const NUM_WORKERS = os.cpus().length; // Number of CPU cores as workers
-const BATCH_TIMEOUT_MS = 500; // Batch processing timeout in milliseconds
-const MAX_QUEUE_SIZE = 500000; // Maximum size of the queue
-let totalProcessed = 0;
+const BATCH_TIMEOUT_MS = 50; // Batch processing timeout in milliseconds
+const MAX_QUEUE_SIZE = 1_000_000; // Maximum size of the queue
+const MAX_REQUESTS = 1_000_000; // Total requests to process before shutting down
+
+let totalProcessed = 0; // Track total processed requests
 
 // Request queue
 let requestQueue: { data: string }[] = [];
 
 // Worker thread implementation
 if (cluster.isPrimary) {
-  //if cluster is primary that means workers are not there so spawn the workers 
   console.log(`Primary process ${process.pid} is running.`);
 
   // Spawn worker processes
@@ -44,8 +45,18 @@ if (cluster.isPrimary) {
 
   // Listen for messages from worker processes
   cluster.on("message", (worker, msg) => {
-    if (msg === "ready") {
+    if (msg.type === "ready") {
       console.log(`Worker ${worker.process.pid} is ready.`);
+    } else if (msg.type === "processed") {
+      totalProcessed += msg.count;
+
+      console.log(`Total processed: ${totalProcessed}/${MAX_REQUESTS}`);
+
+      // Check if we have reached the maximum number of requests
+      if (totalProcessed >= MAX_REQUESTS) {
+        console.log("Maximum requests processed. Initiating shutdown...");
+        shutdown();
+      }
     }
   });
 
@@ -53,7 +64,7 @@ if (cluster.isPrimary) {
   const highPerformanceService = {
     process: (call: any, callback: any) => {
       const request = call.request;
-        //add the request to the request queueue
+
       // Add to the queue
       if (requestQueue.length < MAX_QUEUE_SIZE) {
         requestQueue.push(request); // Push the request to the queue
@@ -61,28 +72,8 @@ if (cluster.isPrimary) {
         console.warn("Queue is full. Dropping incoming requests!");
       }
 
-      // send the response to the client
       callback(null, { status: "ok" });
     },
-
-    /*
-    streamProcess: (call: any) => {
-      console.log("Received streaming request.");
-      call.on("data", (request: any) => {
-        if (requestQueue.length < MAX_QUEUE_SIZE) {
-          requestQueue.push(request);
-        } else {
-          console.warn("Queue is full. Dropping incoming streaming requests!");
-        }
-      });
-
-      call.on("end", () => {
-        console.log("Stream ended.");
-        call.end();
-      });
-    },
-    */
-
   };
 
   // Batch processing logic
@@ -91,10 +82,8 @@ if (cluster.isPrimary) {
       return;
     }
 
-    // Create a batch of requests
     const batch = requestQueue.splice(0, BATCH_SIZE);
 
-    // Distribute batches to workers
     for (const workerId in cluster.workers) {
       const worker = cluster.workers[workerId];
       if (worker) {
@@ -102,7 +91,6 @@ if (cluster.isPrimary) {
       }
     }
 
-    // Track processing of batches
     console.log(`Batch sent for processing: ${batch.length} requests`);
   }, BATCH_TIMEOUT_MS);
 
@@ -121,9 +109,10 @@ if (cluster.isPrimary) {
     }
   });
 
-  // Graceful shutdown
-  process.on("SIGINT", async () => {
+  // Graceful shutdown logic
+  async function shutdown() {
     console.log("Shutting down server...");
+
     await prisma.$disconnect();
 
     for (const id in cluster.workers) {
@@ -138,25 +127,27 @@ if (cluster.isPrimary) {
       }
       process.exit(0);
     });
-  });
+  }
+
+  process.on("SIGINT", shutdown);
 } else {
   // Worker process logic
-  process.send?.("ready");
+  process.send?.({ type: "ready" });
 
   process.on("message", async (batch: { data: string }[]) => {
     const processed = await processBatch(batch);
-    process.send?.(processed); // Notify the parent process with the count of processed requests
+    process.send?.({ type: "processed", count: processed });
   });
 
   async function processBatch(batch: { data: string }[]) {
-    const processedRequests = await prisma.request.createMany({
+    const result = await prisma.request.createMany({
       data: batch.map((request) => ({
         requestData: request.data,
         timestamp: Date.now(),
       })),
-      skipDuplicates : true //skip duplicate entries in the datatbase
+      skipDuplicates: true, // Skip duplicate entries in the database
     });
 
-    return processedRequests.count; // Return the count of processed requests
+    return result.count; // Return the count of processed requests
   }
 }
