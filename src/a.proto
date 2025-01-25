@@ -1,12 +1,15 @@
 
 syntax = "proto3";
 
-package polarmeet;
+//to access the below services we will need the package thingy as we have to enter .highPerformance whenevr we use the protoy field
+
+package highPerformance; 
 
 //this service takes the request and returns a Response
 
 service HighPerformanceService {
     rpc process (Request) returns (Response);
+    rpc process (stream Request) returns (stream Response);
 }
 
 //how the request field will look like >
