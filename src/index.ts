@@ -22,7 +22,7 @@ const prisma = new PrismaClient();
 
 //load the proto file>
 
-const packageDefinition = protoLoader.loadSync(path.join(__dirname , '../src/a.proto'));
+const packageDefinition = protoLoader.loadSync(path.join(__dirname , '../proto/a.proto'));
 
 //put it into a grpc function >
 
