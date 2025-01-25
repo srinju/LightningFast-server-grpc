@@ -34,6 +34,7 @@ let requestQueue: { data: string }[] = [];
 
 // Worker thread implementation
 if (cluster.isPrimary) {
+  //if cluster is primary that means workers are not there so spawn the workers 
   console.log(`Primary process ${process.pid} is running.`);
 
   // Spawn worker processes
@@ -52,7 +53,7 @@ if (cluster.isPrimary) {
   const highPerformanceService = {
     process: (call: any, callback: any) => {
       const request = call.request;
-
+        //add the request to the request queueue
       // Add to the queue
       if (requestQueue.length < MAX_QUEUE_SIZE) {
         requestQueue.push(request); // Push the request to the queue
@@ -60,10 +61,11 @@ if (cluster.isPrimary) {
         console.warn("Queue is full. Dropping incoming requests!");
       }
 
-      // Respond to the client
+      // send the response to the client
       callback(null, { status: "ok" });
     },
 
+    /*
     streamProcess: (call: any) => {
       console.log("Received streaming request.");
       call.on("data", (request: any) => {
@@ -79,6 +81,8 @@ if (cluster.isPrimary) {
         call.end();
       });
     },
+    */
+
   };
 
   // Batch processing logic
@@ -90,14 +94,16 @@ if (cluster.isPrimary) {
     // Create a batch of requests
     const batch = requestQueue.splice(0, BATCH_SIZE);
 
-    // Assign a worker to process the batch
-    //@ts-ignore
-    const worker = cluster.workers[Object.keys(cluster.workers)[0]];
-    worker?.send(batch);
-    worker?.once("message", (processed: number) => {
-      totalProcessed += processed;
-      console.log(`Processed ${processed} requests. Total processed: ${totalProcessed}`);
-    });
+    // Distribute batches to workers
+    for (const workerId in cluster.workers) {
+      const worker = cluster.workers[workerId];
+      if (worker) {
+        worker.send(batch);
+      }
+    }
+
+    // Track processing of batches
+    console.log(`Batch sent for processing: ${batch.length} requests`);
   }, BATCH_TIMEOUT_MS);
 
   // Start the gRPC server
@@ -143,12 +149,12 @@ if (cluster.isPrimary) {
   });
 
   async function processBatch(batch: { data: string }[]) {
-    // Insert requests into the database
     const processedRequests = await prisma.request.createMany({
       data: batch.map((request) => ({
         requestData: request.data,
         timestamp: Date.now(),
       })),
+      skipDuplicates : true //skip duplicate entries in the datatbase
     });
 
     return processedRequests.count; // Return the count of processed requests
