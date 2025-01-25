@@ -16,19 +16,21 @@ async function runClient() {
   );
   const proto = grpc.loadPackageDefinition(packageDefinition);
   const HighPerformanceService = (proto as any).highPerformance.HighPerformanceService;
-  //create grpc client 
+  
   const client = new HighPerformanceService(
     'localhost:9090', 
     grpc.credentials.createInsecure()
   );
 
-  // Function to send a single request
+  // Function to send a single request with timing
   const sendRequest = (data: string): Promise<void> => {
+    const start = performance.now();
     return new Promise((resolve, reject) => {
       client.process({ data }, (error: any, response: any) => {
+        const end = performance.now();
         if (error) {
-          console.error(`Request failed: ${error.message}`);
-          resolve(); // Continue processing other requests
+          console.error(`Request failed: ${error.message}, Time: ${(end - start).toFixed(2)}ms`);
+          resolve();
         } else {
           resolve();
         }
@@ -37,21 +39,39 @@ async function runClient() {
   };
 
   // Send 1 million requests with concurrency control
-  const CONCURRENCY = 100; // Adjust based on your system capabilities
+  const CONCURRENCY = 100;
   const TOTAL_REQUESTS = 1_000_000;
 
-  console.time('Total Request Time');
+  console.time('Total Execution Time');
   
+  const batchStartTimes: number[] = [];
+  const batchEndTimes: number[] = [];
+
   for (let i = 0; i < TOTAL_REQUESTS; i += CONCURRENCY) {
+    const batchStart = performance.now();
+    batchStartTimes.push(batchStart);
+
     const batch = Array(Math.min(CONCURRENCY, TOTAL_REQUESTS - i)).fill(0).map((_, j) => 
       sendRequest(`Request ${i + j}`)
     );
     
     await Promise.all(batch);
-    console.log(`Processed ${i + batch.length} requests`);
+    
+    const batchEnd = performance.now();
+    batchEndTimes.push(batchEnd);
+
+    console.log(`Batch ${i/CONCURRENCY + 1}: Processed ${i + batch.length} requests, Batch Time: ${(batchEnd - batchStart).toFixed(2)}ms`);
   }
 
-  console.timeEnd('Total Request Time');
+  console.timeEnd('Total Execution Time');
+
+  // Additional timing analysis
+  const totalBatches = batchStartTimes.length;
+  const avgBatchTime = batchEndTimes.map((end, i) => end - batchStartTimes[i])
+    .reduce((a, b) => a + b, 0) / totalBatches;
+
+  console.log(`Total Batches: ${totalBatches}`);
+  console.log(`Average Batch Processing Time: ${avgBatchTime.toFixed(2)}ms`);
 }
 
 // Run the client
