@@ -1,0 +1,22 @@
+
+syntax = "proto3";
+
+package polarmeet;
+
+//this service takes the request and returns a Response
+
+service HighPerformanceService {
+    rpc process (Request) returns (Response);
+}
+
+//how the request field will look like >
+
+message Request {
+    string data = 1;
+}
+
+//how the response fiekd will look like >
+
+message Response {
+    string status = 1;
+}

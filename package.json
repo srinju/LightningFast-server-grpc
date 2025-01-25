@@ -1,0 +1,20 @@
+{
+  "name": "highperformance-grpc-server",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@grpc/grpc-js": "^1.12.5",
+    "@grpc/proto-loader": "^0.7.13",
+    "@prisma/client": "^6.2.1",
+    "grpc-tools": "^1.12.4",
+    "prisma": "^6.2.1",
+    "ts-proto": "^2.6.1"
+  }
+}
