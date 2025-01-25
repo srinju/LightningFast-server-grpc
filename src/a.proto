@@ -9,7 +9,7 @@ package highPerformance;
 
 service HighPerformanceService {
     rpc process (Request) returns (Response);
-    rpc process (stream Request) returns (stream Response);
+    rpc streamProcess (stream Request) returns (stream Response);
 }
 
 //how the request field will look like >

@@ -1,8 +1,6 @@
-
-
-import * as grpc from '@grpc/grpc-js';
-import * as protoLoader from '@grpc/proto-loader';
-import path from 'path';
+import * as grpc from "@grpc/grpc-js";
+import * as protoLoader from "@grpc/proto-loader";
+import path from "path";
 
 // Function to generate random data for requests
 function generateRandomData(): string {
@@ -11,19 +9,19 @@ function generateRandomData(): string {
 
 async function runLoadTest() {
   // Load the proto file
-  const packageDefinition = protoLoader.loadSync(path.join(__dirname, '../proto/a.proto'), {
+  const packageDefinition = protoLoader.loadSync(path.join(__dirname, "../src/a.proto"), {
     keepCase: true,
     longs: String,
     enums: String,
     defaults: true,
-    oneofs: true
+    oneofs: true,
   });
 
   const proto = grpc.loadPackageDefinition(packageDefinition).highPerformance as any;
 
   // Create gRPC client
   const client = new proto.HighPerformanceService(
-    'localhost:9090', 
+    "localhost:9090",
     grpc.credentials.createInsecure()
   );
 
@@ -41,7 +39,7 @@ async function runLoadTest() {
   // Create a promise-based wrapper for the gRPC call
   const makeRequest = (data: string): Promise<void> => {
     return new Promise((resolve, reject) => {
-      client.highPerformanceMethod({ data }, (error: Error | null, response: any) => {
+      client.streamProcess({ data }, (error: Error | null, response: any) => {
         if (error) {
           failedRequests++;
           reject(error);
@@ -58,9 +56,7 @@ async function runLoadTest() {
     const requests: Promise<void>[] = [];
 
     for (let i = 0; i < CONCURRENCY; i++) {
-      requests.push(
-        makeRequest(generateRandomData())
-      );
+      requests.push(makeRequest(generateRandomData()));
     }
 
     await Promise.all(requests);
@@ -84,14 +80,13 @@ async function runLoadTest() {
     const duration = (endTime - startTime) / 1000; // in seconds
     const requestsPerSecond = completedRequests / duration;
 
-    console.log('\n--- Load Test Results ---');
+    console.log("\n--- Load Test Results ---");
     console.log(`Total Requests: ${completedRequests}`);
     console.log(`Failed Requests: ${failedRequests}`);
     console.log(`Duration: ${duration.toFixed(2)} seconds`);
     console.log(`Requests per Second: ${requestsPerSecond.toFixed(2)}`);
-
   } catch (error) {
-    console.error('Load test failed:', error);
+    console.error("Load test failed:", error);
   } finally {
     // Close the client connection
     client.close();
