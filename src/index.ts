@@ -93,6 +93,7 @@ if(cluster.isPrimary){
         const batch = requestQueue.splice(0 , BATCH_SIZE);
 
         //assign a worker to handle the batch >>
+        //@ts-ignore
         const worker = cluster.workers[Object.keys(cluster.workers)[0]]; //select any woker
         //send the batch to the worker >
         worker?.send(batch);
