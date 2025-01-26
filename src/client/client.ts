@@ -39,7 +39,7 @@ async function runClient() {
   };
 
   // Send 1 million requests with concurrency control
-  const CONCURRENCY = 10_000;
+  const CONCURRENCY = 50_000;
   const TOTAL_REQUESTS = 1_000_000;
 
   console.time('Total Execution Time');
