@@ -23,7 +23,7 @@ const proto = grpc.loadPackageDefinition(packageDefinition) as any;
 const HighPerformanceService = proto.highPerformance.HighPerformanceService;
 
 // Batch settings
-const BATCH_SIZE = 1_000_000; // Process requests in batches of 200,000
+const BATCH_SIZE = 5000; // Process requests in batches of 200,000
 const NUM_WORKERS = os.cpus().length; // Number of CPU cores as workers
 const BATCH_TIMEOUT_MS = 50; // Batch processing timeout in milliseconds
 const MAX_QUEUE_SIZE = 1_000_000; // Maximum size of the queue
@@ -32,7 +32,7 @@ const MAX_REQUESTS = 1_000_000; // Total requests to process before shutting dow
 let totalProcessed = 0; // Track total processed requests
 
 // Request queue
-let requestQueue: { data: string }[] = [];
+let requestQueue : any =  [];
 
 // Worker thread implementation
 if (cluster.isPrimary) {
